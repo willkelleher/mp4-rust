@@ -6,8 +6,8 @@ use crate::mp4box::*;
 
 pub enum TrackFlag {
     TrackEnabled = 0x000001,
-    // TrackInMovie = 0x000002,
-    // TrackInPreview = 0x000004,
+    TrackInMovie = 0x000002,
+    TrackInPreview = 0x000004,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -142,7 +142,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
 
         reader.read_u16::<BigEndian>()?; // reserved
         let matrix = Matrix {
-            a: reader.read_i32::<byteorder::LittleEndian>()?,
+            a: reader.read_i32::<BigEndian>()?,
             b: reader.read_i32::<BigEndian>()?,
             u: reader.read_i32::<BigEndian>()?,
             c: reader.read_i32::<BigEndian>()?,
@@ -205,7 +205,7 @@ impl<W: Write> WriteBox<&mut W> for TkhdBox {
 
         writer.write_u16::<BigEndian>(0)?; // reserved
 
-        writer.write_i32::<byteorder::LittleEndian>(self.matrix.a)?;
+        writer.write_i32::<BigEndian>(self.matrix.a)?;
         writer.write_i32::<BigEndian>(self.matrix.b)?;
         writer.write_i32::<BigEndian>(self.matrix.u)?;
         writer.write_i32::<BigEndian>(self.matrix.c)?;

@@ -77,7 +77,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 mod types;
 pub use types::*;
 
-mod mp4box;
+pub mod mp4box;
 pub use mp4box::{Mp4Box};
 
 mod track;
