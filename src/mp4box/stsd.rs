@@ -25,6 +25,7 @@ pub struct StsdBox {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tx3g: Option<Tx3gBox>,
+
 }
 
 impl StsdBox {

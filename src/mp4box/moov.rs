@@ -25,6 +25,9 @@ impl MoovBox {
         for trak in self.traks.iter() {
             size += trak.box_size();
         }
+        if let Some(mvex) = &self.mvex {
+            size += mvex.get_size();
+        }
         size
     }
 }
@@ -110,6 +113,11 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         for trak in self.traks.iter() {
             trak.write_box(writer)?;
         }
+
+        if let Some(mvex) = &self.mvex {
+            mvex.write_box(writer)?;
+        }
+
         Ok(0)
     }
 }
