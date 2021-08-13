@@ -205,7 +205,7 @@ impl<W: Write> WriteBox<&mut W> for TkhdBox {
 
         writer.write_u16::<BigEndian>(0)?; // reserved
 
-        writer.write_i32::<byteorder::LittleEndian>(self.matrix.a)?;
+        writer.write_i32::<BigEndian>(self.matrix.a)?;
         writer.write_i32::<BigEndian>(self.matrix.b)?;
         writer.write_i32::<BigEndian>(self.matrix.u)?;
         writer.write_i32::<BigEndian>(self.matrix.c)?;
