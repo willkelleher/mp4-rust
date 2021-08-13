@@ -8,6 +8,7 @@ use crate::mp4box::*;
 pub struct HdlrBox {
     pub version: u8,
     pub flags: u32,
+    pub handler_what: FourCC,
     pub handler_type: FourCC,
     pub name: String,
 }
@@ -71,6 +72,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
         Ok(HdlrBox {
             version,
             flags,
+            handler_what: FourCC::from(0),
             handler_type: From::from(handler),
             name: handler_string,
         })
@@ -84,7 +86,7 @@ impl<W: Write> WriteBox<&mut W> for HdlrBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
 
-        writer.write_u32::<BigEndian>(0)?; // pre-defined
+        writer.write_u32::<BigEndian>((&self.handler_what).into())?;
         writer.write_u32::<BigEndian>((&self.handler_type).into())?;
 
         // 12 bytes reserved

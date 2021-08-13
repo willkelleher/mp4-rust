@@ -1,8 +1,9 @@
+use serde::Serialize;
 use std::io::{Read, Seek, SeekFrom, Write};
-use serde::{Serialize};
+use std::str::FromStr;
 
 use crate::mp4box::*;
-use crate::mp4box::{mvhd::MvhdBox, mvex::MvexBox, trak::TrakBox};
+use crate::mp4box::{hdlr::HdlrBox, mvex::MvexBox, mvhd::MvhdBox, trak::TrakBox};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct MoovBox {
@@ -28,6 +29,7 @@ impl MoovBox {
         if let Some(mvex) = &self.mvex {
             size += mvex.get_size();
         }
+        size += 61;
         size
     }
 }
@@ -113,6 +115,26 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         for trak in self.traks.iter() {
             trak.write_box(writer)?;
         }
+
+        let udta_size = 53;
+        BoxHeader::new(BoxType::UdtaBox, HEADER_SIZE + udta_size).write(writer)?;
+
+        let meta_size = 41;
+        BoxHeader::new(BoxType::MetaBox, HEADER_SIZE + HEADER_EXT_SIZE + meta_size)
+            .write(writer)?;
+        write_box_header_ext(writer, 0, 0)?;
+
+        let hdlr = HdlrBox {
+            version: 0,
+            flags: 0,
+            handler_what: FourCC::from_str("mhlr").unwrap(),
+            handler_type: FourCC::from_str("mdir").unwrap(),
+            name: "".to_owned(),
+        };
+        hdlr.write_box(writer)?;
+
+        let ilst = BoxHeader::new(BoxType::IlstBox, HEADER_SIZE);
+        ilst.write(writer)?;
 
         if let Some(mvex) = &self.mvex {
             mvex.write_box(writer)?;

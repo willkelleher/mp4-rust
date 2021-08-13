@@ -143,6 +143,7 @@ boxtype! {
     MoovBox => 0x6d6f6f76,
     MvexBox => 0x6d766578,
     MehdBox => 0x6d656864,
+    MetaBox => 0x6d657461,
     TrexBox => 0x74726578,
     EmsgBox => 0x656d7367,
     MoofBox => 0x6d6f6f66,
@@ -181,7 +182,8 @@ boxtype! {
     EsdsBox => 0x65736473,
     Tx3gBox => 0x74783367,
     VpccBox => 0x76706343,
-    Vp09Box => 0x76703039
+    Vp09Box => 0x76703039,
+    IlstBox => 0x696C7374
 }
 
 pub trait Mp4Box: Sized {
