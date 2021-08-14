@@ -15,6 +15,7 @@ pub struct MvhdBox {
 
     #[serde(with = "value_u32")]
     pub rate: FixedPointU16,
+    pub matrix: tkhd::Matrix,
 }
 
 impl MvhdBox {
@@ -44,6 +45,7 @@ impl Default for MvhdBox {
             timescale: 1000,
             duration: 0,
             rate: FixedPointU16::new(1),
+            matrix: tkhd::Matrix::default(),
         }
     }
 }
@@ -102,6 +104,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
             modification_time,
             timescale,
             duration,
+            matrix: tkhd::Matrix::default(),
             rate,
         })
     }
@@ -129,8 +132,31 @@ impl<W: Write> WriteBox<&mut W> for MvhdBox {
         }
         writer.write_u32::<BigEndian>(self.rate.raw_value())?;
 
-        // XXX volume, ...
-        write_zeros(writer, 76)?;
+        // skip over a bunch of stuff here
+        // volume: 2 bytes
+        // 2 bytes reserved
+        // 8 bytes reserved
+        write_zeros(writer, 12)?;
+
+        // 9*4=36 bytes for the matrix
+        writer.write_i32::<BigEndian>(self.matrix.a)?;
+        writer.write_i32::<BigEndian>(self.matrix.b)?;
+        writer.write_i32::<BigEndian>(self.matrix.u)?;
+        writer.write_i32::<BigEndian>(self.matrix.c)?;
+        writer.write_i32::<BigEndian>(self.matrix.d)?;
+        writer.write_i32::<BigEndian>(self.matrix.v)?;
+        writer.write_i32::<BigEndian>(self.matrix.x)?;
+        writer.write_i32::<BigEndian>(self.matrix.y)?;
+        writer.write_i32::<BigEndian>(self.matrix.w)?;
+
+        // 4 bytes preview_time
+        // 4 bytes preview_duration
+        // 4 bytes poster_time
+        // 4 bytes selection_time
+        // 4 bytes selection_duration
+        // 4 bytes current_time
+        // 4 bytes next_track_id
+        write_zeros(writer, 28)?;
 
         Ok(size)
     }
