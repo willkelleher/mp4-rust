@@ -467,7 +467,7 @@ impl Descriptor for DecoderSpecificDescriptor {
     }
 
     fn desc_size() -> u32 {
-        2
+        5
     }
 }
 
@@ -494,6 +494,10 @@ impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
 
         writer.write_u8((self.profile << 3) + (self.freq_index >> 1))?;
         writer.write_u8((self.freq_index << 7) + (self.chan_conf << 3))?;
+
+        writer.write_u8(0x56)?;
+        writer.write_u8(0xe5)?;
+        writer.write_u8(0x00)?;
 
         Ok(size)
     }
