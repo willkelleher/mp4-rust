@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::Serialize;
 use std::io::{Read, Seek, Write};
-use serde::{Serialize};
 
 use crate::mp4box::*;
 
@@ -10,6 +10,9 @@ pub struct TfhdBox {
     pub flags: u32,
     pub track_id: u32,
     pub base_data_offset: u64,
+    pub default_duration: u32,
+    pub default_size: u32,
+    pub default_flags: u32,
 }
 
 impl Default for TfhdBox {
@@ -19,17 +22,38 @@ impl Default for TfhdBox {
             flags: 0,
             track_id: 0,
             base_data_offset: 0,
+            default_duration: 0,
+            default_size: 0,
+            default_flags: 0,
         }
     }
 }
 
 impl TfhdBox {
+    pub const FLAG_BASE_DATA_OFFSET: u32 = 0x01;
+    pub const FLAG_DEFAULT_DURATION: u32 = 0x08;
+    pub const FLAG_DEFAULT_SIZE: u32 = 0x10;
+    pub const FLAG_DEFAULT_FLAGS: u32 = 0x20;
+
     pub fn get_type(&self) -> BoxType {
         BoxType::TfhdBox
     }
 
     pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4 + 8
+        let mut sum = HEADER_SIZE + HEADER_EXT_SIZE + 4;
+        if TfhdBox::FLAG_BASE_DATA_OFFSET & self.flags > 0 {
+            sum += 8;
+        }
+        if TfhdBox::FLAG_DEFAULT_DURATION & self.flags > 0 {
+            sum += 4;
+        }
+        if TfhdBox::FLAG_DEFAULT_SIZE & self.flags > 0 {
+            sum += 4;
+        }
+        if TfhdBox::FLAG_DEFAULT_FLAGS & self.flags > 0 {
+            sum += 4;
+        }
+        sum
     }
 }
 
@@ -67,6 +91,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for TfhdBox {
             flags,
             track_id,
             base_data_offset,
+            default_duration: 0,
+            default_size: 0,
+            default_flags: 0,
         })
     }
 }
@@ -78,7 +105,19 @@ impl<W: Write> WriteBox<&mut W> for TfhdBox {
 
         write_box_header_ext(writer, self.version, self.flags)?;
         writer.write_u32::<BigEndian>(self.track_id)?;
-        writer.write_u64::<BigEndian>(self.base_data_offset)?;
+
+        if TfhdBox::FLAG_BASE_DATA_OFFSET & self.flags > 0 {
+            writer.write_u64::<BigEndian>(self.base_data_offset)?;
+        }
+        if TfhdBox::FLAG_DEFAULT_DURATION & self.flags > 0 {
+            writer.write_u32::<BigEndian>(self.default_duration)?;
+        }
+        if TfhdBox::FLAG_DEFAULT_SIZE & self.flags > 0 {
+            writer.write_u32::<BigEndian>(self.default_size)?;
+        }
+        if TfhdBox::FLAG_DEFAULT_FLAGS & self.flags > 0 {
+            writer.write_u32::<BigEndian>(self.default_flags)?;
+        }
 
         Ok(size)
     }
@@ -97,6 +136,9 @@ mod tests {
             flags: 0,
             track_id: 1,
             base_data_offset: 0,
+            default_duration: 0,
+            default_size: 0,
+            default_flags: 0,
         };
         let mut buf = Vec::new();
         src_box.write_box(&mut buf).unwrap();
