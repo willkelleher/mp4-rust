@@ -535,7 +535,7 @@ impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
         let size = Self::desc_size();
         write_desc(writer, Self::desc_tag(), size)?;
 
-        writer.write_u8(0)?; // pre-defined
+        writer.write_u8(2)?; // pre-defined
         Ok(size)
     }
 }
