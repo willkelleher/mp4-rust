@@ -571,6 +571,9 @@ pub struct AvcConfig {
 pub struct HevcConfig {
     pub width: u16,
     pub height: u16,
+    pub vid_param_set: Vec<u8>,
+    pub seq_param_set: Vec<u8>,
+    pub pic_param_set: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq, Clone, Default)]

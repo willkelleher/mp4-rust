@@ -45,7 +45,7 @@ impl Hev1Box {
             vertresolution: FixedPointU16::new(0x48),
             frame_count: 1,
             depth: 0x0018,
-            hvcc: HvcCBox::new(),
+            hvcc: HvcCBox::new(&config.seq_param_set, &config.pic_param_set, &config.vid_param_set),
         }
     }
 
@@ -154,12 +154,18 @@ impl<W: Write> WriteBox<&mut W> for Hev1Box {
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct HvcCBox {
     pub configuration_version: u8,
+    pub sequence_parameter_sets: Vec<NalUnit>,
+    pub picture_parameter_sets: Vec<NalUnit>,
+    pub video_parameter_sets: Vec<NalUnit>,
 }
 
 impl HvcCBox {
-    pub fn new() -> Self {
+    pub fn new(sps: &[u8], pps: &[u8], vps: &[u8]) -> Self {
         Self {
             configuration_version: 1,
+            sequence_parameter_sets: vec![NalUnit::from(sps)],
+            picture_parameter_sets: vec![NalUnit::from(pps)],
+            video_parameter_sets: vec![NalUnit::from(vps)],
         }
     }
 }
@@ -170,7 +176,16 @@ impl Mp4Box for HvcCBox {
     }
 
     fn box_size(&self) -> u64 {
-        let size = HEADER_SIZE + 1;
+        let mut size = HEADER_SIZE + 32;
+        for vps in self.video_parameter_sets.iter() {
+            size += vps.size() as u64;
+        }
+        for sps in self.sequence_parameter_sets.iter() {
+            size += sps.size() as u64;
+        }
+        for pps in self.picture_parameter_sets.iter() {
+            size += pps.size() as u64;
+        }
         size
     }
 
@@ -190,14 +205,52 @@ impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
         let start = box_start(reader)?;
 
         let configuration_version = reader.read_u8()?;
+        let _ = reader.read_u8()?; // TODO
+        let _ = reader.read_u32::<BigEndian>()?;
+        let _ = reader.read_u48::<BigEndian>()?;
+        let _ = reader.read_u8()?;
+        let _ = reader.read_u16::<BigEndian>()?;
+        let _ = reader.read_u8()?;
+        let _ = reader.read_u8()?;
+        let _ = reader.read_u8()?; // bitDepthLumaMinus8
+        let _ = reader.read_u8()?; // bitDepthChromaMinus8
+        let _ = reader.read_u16::<BigEndian>()?;
+        let _ = reader.read_u8()?;
+        let _num_arrays = reader.read_u8()?; // numArrays
+
+        let num_of_vpss = reader.read_u8()?;
+        let mut video_parameter_sets = Vec::with_capacity(num_of_vpss as usize);
+        for _ in 0..num_of_vpss {
+            let nal_unit = NalUnit::read(reader)?;
+            video_parameter_sets.push(nal_unit);
+        }
+        let num_of_spss = reader.read_u8()? & 0x1F;
+        let mut sequence_parameter_sets = Vec::with_capacity(num_of_spss as usize);
+        for _ in 0..num_of_spss {
+            let nal_unit = NalUnit::read(reader)?;
+            sequence_parameter_sets.push(nal_unit);
+        }
+        let num_of_ppss = reader.read_u8()?;
+        let mut picture_parameter_sets = Vec::with_capacity(num_of_ppss as usize);
+        for _ in 0..num_of_ppss {
+            let nal_unit = NalUnit::read(reader)?;
+            picture_parameter_sets.push(nal_unit);
+        }
 
         skip_bytes_to(reader, start + size)?;
 
         Ok(HvcCBox {
             configuration_version,
+            video_parameter_sets,
+            sequence_parameter_sets,
+            picture_parameter_sets,
         })
     }
 }
+
+const VPS_NAL_TYPE: u8 = 32;
+const SPS_NAL_TYPE: u8 = 33;
+const PPS_NAL_TYPE: u8 = 34;
 
 impl<W: Write> WriteBox<&mut W> for HvcCBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
@@ -205,7 +258,76 @@ impl<W: Write> WriteBox<&mut W> for HvcCBox {
         BoxHeader::new(self.box_type(), size).write(writer)?;
 
         writer.write_u8(self.configuration_version)?;
+        writer.write_u8(0)?; // general_profile_space, general_tier_flag, general_profile_idc
+        writer.write_u32::<BigEndian>(0)?; // general_profile_compatibility_flags
+        writer.write_u48::<BigEndian>(0)?; // general_constraint_indicator_flags
+        writer.write_u8(0)?; // general_level_idc
+        writer.write_u16::<BigEndian>(0xf000)?; // min_spatial_segmentation_idc
+        writer.write_u8(0xfc | 0)?; // parallelismType
+        writer.write_u8(0xfc | 0)?; // chromaFormat
+        writer.write_u8(2 | 0xf8)?; // bitDepthLumaMinus8
+        writer.write_u8(2 | 0xf8)?; // bitDepthChromaMinus8
+        writer.write_u16::<BigEndian>(0)?; // avgFrameRate
+        writer.write_u8(0 << 6 | 1 << 3 | 1 << 2 | 3)?; //constantFrameRate, numTemporarlLayers, temporalIdNested, lengthSizeMinusOne
+        writer.write_u8(3)?; // numArrays
+
+        // here we write NAL arrays, one for each of our three basic required
+        // types (VPS, SPS, PPS) with a fixed length of 1 per array. obviously
+        // this is not very generic.
+
+        let array_completeness = 1;
+
+        writer.write_u8(array_completeness << 7 | VPS_NAL_TYPE & 0x3f)?;
+        writer.write_u16::<BigEndian>(self.video_parameter_sets.len() as u16)?;
+        for sps in self.video_parameter_sets.iter() {
+            sps.write(writer)?;
+        }
+
+        writer.write_u8(array_completeness << 7 | SPS_NAL_TYPE & 0x3f)?;
+        writer.write_u16::<BigEndian>(self.sequence_parameter_sets.len() as u16)?;
+        for sps in self.sequence_parameter_sets.iter() {
+            sps.write(writer)?;
+        }
+
+        writer.write_u8(array_completeness << 7 | PPS_NAL_TYPE & 0x3f)?;
+        writer.write_u16::<BigEndian>(self.picture_parameter_sets.len() as u16)?;
+        for pps in self.picture_parameter_sets.iter() {
+            pps.write(writer)?;
+        }
+
         Ok(size)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+pub struct NalUnit {
+    pub bytes: Vec<u8>,
+}
+
+impl From<&[u8]> for NalUnit {
+    fn from(bytes: &[u8]) -> Self {
+        Self {
+            bytes: bytes.to_vec(),
+        }
+    }
+}
+
+impl NalUnit {
+    fn size(&self) -> usize {
+        2 + self.bytes.len()
+    }
+
+    fn read<R: Read + Seek>(reader: &mut R) -> Result<Self> {
+        let length = reader.read_u16::<BigEndian>()? as usize;
+        let mut bytes = vec![0u8; length];
+        reader.read(&mut bytes)?;
+        Ok(NalUnit { bytes })
+    }
+
+    fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
+        writer.write_u16::<BigEndian>(self.bytes.len() as u16)?;
+        writer.write(&self.bytes)?;
+        Ok(self.size() as u64)
     }
 }
 
