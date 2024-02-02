@@ -9,8 +9,8 @@ use crate::mp4box::trak::TrakBox;
 use crate::mp4box::trun::TrunBox;
 use crate::mp4box::{
     avc1::Avc1Box, co64::Co64Box, ctts::CttsBox, ctts::CttsEntry, hev1::Hev1Box, mp4a::Mp4aBox,
-    smhd::SmhdBox, stco::StcoBox, stsc::StscEntry, stss::StssBox, stts::SttsEntry, tx3g::Tx3gBox,
-    vmhd::VmhdBox, vp09::Vp09Box,
+    opus::OpusBox, smhd::SmhdBox, stco::StcoBox, stsc::StscEntry, stss::StssBox, stts::SttsEntry,
+    tx3g::Tx3gBox, vmhd::VmhdBox, vp09::Vp09Box,
 };
 use crate::*;
 
@@ -30,6 +30,7 @@ impl From<MediaConfig> for TrackConfig {
             MediaConfig::AacConfig(aac_conf) => Self::from(aac_conf),
             MediaConfig::TtxtConfig(ttxt_conf) => Self::from(ttxt_conf),
             MediaConfig::Vp9Config(vp9_config) => Self::from(vp9_config),
+            MediaConfig::OpusConfig(opus_config) => Self::from(opus_config),
         }
     }
 }
@@ -89,6 +90,17 @@ impl From<Vp9Config> for TrackConfig {
     }
 }
 
+impl From<OpusConfig> for TrackConfig {
+    fn from(opus_conf: OpusConfig) -> Self {
+        Self {
+            track_type: TrackType::Audio,
+            timescale: 1000,               // XXX
+            language: String::from("und"), // XXX
+            media_conf: MediaConfig::OpusConfig(opus_conf),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Mp4Track {
     pub trak: TrakBox,
@@ -129,6 +141,8 @@ impl Mp4Track {
             Ok(MediaType::AAC)
         } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
             Ok(MediaType::TTXT)
+        } else if self.trak.mdia.minf.stbl.stsd.opus.is_some() {
+            Ok(MediaType::OPUS)
         } else {
             Err(Error::InvalidData("unsupported media type"))
         }
@@ -145,6 +159,8 @@ impl Mp4Track {
             Ok(FourCC::from(BoxType::Mp4aBox))
         } else if self.trak.mdia.minf.stbl.stsd.tx3g.is_some() {
             Ok(FourCC::from(BoxType::Tx3gBox))
+        } else if self.trak.mdia.minf.stbl.stsd.opus.is_some() {
+            Ok(FourCC::from(BoxType::OpusBox))
         } else {
             Err(Error::InvalidData("unsupported sample entry box"))
         }
@@ -182,6 +198,8 @@ impl Mp4Track {
             } else {
                 Err(Error::BoxInStblNotFound(self.track_id(), BoxType::EsdsBox))
             }
+        } else if let Some(ref opus) = self.trak.mdia.minf.stbl.stsd.opus {
+            SampleFreqIndex::try_from(opus.dops.sample_rate)
         } else {
             Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
         }
@@ -194,6 +212,8 @@ impl Mp4Track {
             } else {
                 Err(Error::BoxInStblNotFound(self.track_id(), BoxType::EsdsBox))
             }
+        } else if let Some(ref opus) = self.trak.mdia.minf.stbl.stsd.opus {
+            ChannelConfig::try_from(opus.dops.channel_count)
         } else {
             Err(Error::BoxInStblNotFound(self.track_id(), BoxType::Mp4aBox))
         }
@@ -685,6 +705,10 @@ impl Mp4TrackWriter {
             MediaConfig::TtxtConfig(ref _ttxt_config) => {
                 let tx3g = Tx3gBox::default();
                 trak.mdia.minf.stbl.stsd.tx3g = Some(tx3g);
+            }
+            MediaConfig::OpusConfig(ref _opus_config) => {
+                let opus = OpusBox::default();
+                trak.mdia.minf.stbl.stsd.opus = Some(opus);
             }
         }
         Ok(Mp4TrackWriter {

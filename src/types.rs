@@ -222,6 +222,7 @@ const MEDIA_TYPE_H265: &str = "h265";
 const MEDIA_TYPE_VP9: &str = "vp9";
 const MEDIA_TYPE_AAC: &str = "aac";
 const MEDIA_TYPE_TTXT: &str = "ttxt";
+const MEDIA_TYPE_OPUS: &str = "opus";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaType {
@@ -230,6 +231,7 @@ pub enum MediaType {
     VP9,
     AAC,
     TTXT,
+    OPUS,
 }
 
 impl fmt::Display for MediaType {
@@ -248,6 +250,7 @@ impl TryFrom<&str> for MediaType {
             MEDIA_TYPE_VP9 => Ok(MediaType::VP9),
             MEDIA_TYPE_AAC => Ok(MediaType::AAC),
             MEDIA_TYPE_TTXT => Ok(MediaType::TTXT),
+            MEDIA_TYPE_OPUS => Ok(MediaType::OPUS),
             _ => Err(Error::InvalidData("unsupported media type")),
         }
     }
@@ -261,6 +264,7 @@ impl From<MediaType> for &str {
             MediaType::VP9 => MEDIA_TYPE_VP9,
             MediaType::AAC => MEDIA_TYPE_AAC,
             MediaType::TTXT => MEDIA_TYPE_TTXT,
+            MediaType::OPUS => MEDIA_TYPE_OPUS,
         }
     }
 }
@@ -273,6 +277,7 @@ impl From<&MediaType> for &str {
             MediaType::VP9 => MEDIA_TYPE_VP9,
             MediaType::AAC => MEDIA_TYPE_AAC,
             MediaType::TTXT => MEDIA_TYPE_TTXT,
+            MediaType::OPUS => MEDIA_TYPE_OPUS,
         }
     }
 }
@@ -502,6 +507,28 @@ impl TryFrom<u8> for SampleFreqIndex {
     }
 }
 
+impl TryFrom<u32> for SampleFreqIndex {
+    type Error = Error;
+    fn try_from(value: u32) -> Result<SampleFreqIndex> {
+        match value {
+            9600 => Ok(SampleFreqIndex::Freq96000),
+            88200 => Ok(SampleFreqIndex::Freq88200),
+            64000 => Ok(SampleFreqIndex::Freq64000),
+            48000 => Ok(SampleFreqIndex::Freq48000),
+            44100 => Ok(SampleFreqIndex::Freq44100),
+            32000 => Ok(SampleFreqIndex::Freq32000),
+            24000 => Ok(SampleFreqIndex::Freq24000),
+            22050 => Ok(SampleFreqIndex::Freq22050),
+            16000 => Ok(SampleFreqIndex::Freq16000),
+            12000 => Ok(SampleFreqIndex::Freq12000),
+            11025 => Ok(SampleFreqIndex::Freq11025),
+            8000 => Ok(SampleFreqIndex::Freq8000),
+            7350 => Ok(SampleFreqIndex::Freq7350),
+            _ => Err(Error::InvalidData("invalid sampling frequency index")),
+        }
+    }
+}
+
 impl SampleFreqIndex {
     pub fn freq(&self) -> u32 {
         match *self {
@@ -607,12 +634,32 @@ impl Default for AacConfig {
 pub struct TtxtConfig {}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub struct OpusConfig {
+    pub bitrate: u32,
+    pub freq_index: SampleFreqIndex,
+    pub chan_conf: ChannelConfig,
+    pub pre_skip: u16,
+}
+
+impl Default for OpusConfig {
+    fn default() -> Self {
+        Self {
+            bitrate: 0,
+            freq_index: SampleFreqIndex::Freq48000,
+            chan_conf: ChannelConfig::Stereo,
+            pre_skip: 0,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum MediaConfig {
     AvcConfig(AvcConfig),
     HevcConfig(HevcConfig),
     Vp9Config(Vp9Config),
     AacConfig(AacConfig),
     TtxtConfig(TtxtConfig),
+    OpusConfig(OpusConfig),
 }
 
 #[derive(Debug)]

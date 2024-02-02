@@ -85,6 +85,7 @@ pub(crate) mod moov;
 pub(crate) mod mp4a;
 pub(crate) mod mvex;
 pub(crate) mod mvhd;
+pub(crate) mod opus;
 pub(crate) mod smhd;
 pub(crate) mod stbl;
 pub(crate) mod stco;
@@ -238,7 +239,9 @@ boxtype! {
     CovrBox => 0x636f7672,
     DescBox => 0x64657363,
     WideBox => 0x77696465,
-    WaveBox => 0x77617665
+    WaveBox => 0x77617665,
+    OpusBox => 0x4F707573,
+    DopsBox => 0x644F7073
 }
 
 pub trait Mp4Box: Sized {
