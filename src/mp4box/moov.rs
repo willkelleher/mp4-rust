@@ -38,6 +38,9 @@ impl MoovBox {
         if let Some(udta) = &self.udta {
             size += udta.box_size();
         }
+        if let Some(mvex) = &self.mvex {
+            size += mvex.box_size();
+        }
         size
     }
 }
@@ -139,6 +142,9 @@ impl<W: Write> WriteBox<&mut W> for MoovBox {
         }
         if let Some(udta) = &self.udta {
             udta.write_box(writer)?;
+        }
+        if let Some(mvex) = &self.mvex {
+            mvex.write_box(writer)?;
         }
         Ok(0)
     }
