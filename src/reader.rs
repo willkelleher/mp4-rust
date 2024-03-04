@@ -97,16 +97,19 @@ impl<R: Read + Seek> Mp4Reader<R> {
 
         // Update tracks if any fragmented (moof) boxes are found.
         if !moofs.is_empty() {
-            let mut default_sample_duration = 0;
-            if let Some(ref moov) = moov {
-                if let Some(ref mvex) = &moov.mvex {
-                    default_sample_duration = mvex.trex.default_sample_duration
-                }
-            }
-
             for (moof, moof_offset) in moofs.iter().zip(moof_offsets) {
                 for traf in moof.trafs.iter() {
                     let track_id = traf.tfhd.track_id;
+
+                    let mut default_sample_duration = 0;
+                    if let Some(ref moov) = moov {
+                        if let Some(ref mvex) = &moov.mvex {
+                            if let Some(trex) = mvex.trex.iter().find(|t| t.track_id == track_id) {
+                                default_sample_duration = trex.default_sample_duration
+                            }
+                        }
+                    }
+
                     if let Some(track) = tracks.get_mut(&track_id) {
                         track.default_sample_duration = default_sample_duration;
                         track.moof_offsets.push(moof_offset);
@@ -186,14 +189,17 @@ impl<R: Read + Seek> Mp4Reader<R> {
             .map(|trak| (trak.tkhd.track_id, Mp4Track::from(trak)))
             .collect();
 
-        let mut default_sample_duration = 0;
-        if let Some(ref mvex) = &self.moov.mvex {
-            default_sample_duration = mvex.trex.default_sample_duration
-        }
-
         for (moof, moof_offset) in moofs.iter().zip(moof_offsets) {
             for traf in moof.trafs.iter() {
                 let track_id = traf.tfhd.track_id;
+
+                let mut default_sample_duration = 0;
+                if let Some(ref mvex) = self.moov.mvex {
+                    if let Some(trex) = mvex.trex.iter().find(|t| t.track_id == track_id) {
+                        default_sample_duration = trex.default_sample_duration
+                    }
+                }
+
                 if let Some(track) = tracks.get_mut(&track_id) {
                     track.default_sample_duration = default_sample_duration;
                     track.moof_offsets.push(moof_offset);
