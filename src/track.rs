@@ -281,7 +281,7 @@ impl Mp4Track {
 
     pub fn sequence_parameter_set(&self) -> Result<&[u8]> {
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
-            match avc1.avcc.sequence_parameter_sets.get(0) {
+            match avc1.avcc.sequence_parameter_sets.first() {
                 Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
                     self.track_id(),
@@ -296,7 +296,7 @@ impl Mp4Track {
 
     pub fn picture_parameter_set(&self) -> Result<&[u8]> {
         if let Some(ref avc1) = self.trak.mdia.minf.stbl.stsd.avc1 {
-            match avc1.avcc.picture_parameter_sets.get(0) {
+            match avc1.avcc.picture_parameter_sets.first() {
                 Some(nal) => Ok(nal.bytes.as_ref()),
                 None => Err(Error::EntryInStblNotFound(
                     self.track_id(),
@@ -665,7 +665,7 @@ impl Mp4TrackWriter {
         let mut trak = TrakBox::default();
         trak.tkhd.track_id = track_id;
         trak.mdia.mdhd.timescale = config.timescale;
-        trak.mdia.mdhd.language = config.language.to_owned();
+        config.language.clone_into(&mut trak.mdia.mdhd.language);
         trak.mdia.hdlr.handler_type = config.track_type.into();
         trak.mdia.minf.stbl.co64 = Some(Co64Box::default());
         match config.media_conf {
